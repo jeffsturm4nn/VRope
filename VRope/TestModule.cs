@@ -13,6 +13,8 @@ namespace VRope
     {
         public static readonly Vector3 AirportEntracePosition = new Vector3(-1337.0f, -3044.0f, 13.9f);
         public static readonly Vector3 LandActWaterReservoirPosition = new Vector3(2150.0f, 5150f, 0f);
+        public static readonly Vector3 CityJunkyardPosition = new Vector3(1060f, -2460f, 30f);
+        public static readonly Vector3 FranklinHouse1Position = new Vector3(-14f, -1458f, 30f);
 
         public static bool TestAction1 = false;
         public static List<Entity> TestEntities = new List<Entity>(100);
