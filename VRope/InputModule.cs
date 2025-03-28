@@ -5,6 +5,7 @@ using System.Windows.Forms;
 using GTA;
 
 using static VRope.Core;
+using static VRope.TestModule;
 using static VRope.RopeModule;
 using static VRope.TransportModule;
 using static VRope.ForceModule;
@@ -34,6 +35,18 @@ namespace VRope
             (Action)delegate { TestAction1 = !TestAction1; }, TriggerCondition.PRESSED, true);
             RegisterControlKey("ToggleTestAction2Key", settings.GetValue<String>("DEV_STUFF", "ToggleTestAction2Key", "None"),
             (Action)delegate { ThisIsATestFunction(); }, TriggerCondition.PRESSED, true);
+            RegisterControlKey("ToggleTestAction3Key", settings.GetValue<String>("DEV_STUFF", "ToggleTestAction3Key", "None"),
+            (Action)delegate { ThisIsAnotherTestFunction(); }, TriggerCondition.PRESSED, true);
+            RegisterControlKey("ToggleTestAction4Key", settings.GetValue<String>("DEV_STUFF", "ToggleTestAction4Key", "None"),
+            (Action)delegate { ToggleTestAction4(); }, TriggerCondition.PRESSED, true);
+            RegisterControlKey("ToggleTestAction5Key", settings.GetValue<String>("DEV_STUFF", "ToggleTestAction5Key", "None"),
+            (Action)delegate { ToggleTestAction5(); }, TriggerCondition.PRESSED, true);
+            RegisterControlKey("ToggleTestAction6Key", settings.GetValue<String>("DEV_STUFF", "ToggleTestAction6Key", "None"),
+            (Action)delegate { ToggleTestAction6(); }, TriggerCondition.PRESSED, true);
+            RegisterControlKey("ToggleTestAction7Key", settings.GetValue<String>("DEV_STUFF", "ToggleTestAction7Key", "None"),
+            (Action)delegate { ToggleTestAction7(); }, TriggerCondition.PRESSED, true);
+            RegisterControlKey("ToggleTestAction8Key", settings.GetValue<String>("DEV_STUFF", "ToggleTestAction8Key", "None"),
+            (Action)delegate { ToggleTestAction8(); }, TriggerCondition.PRESSED, true);
 
             RegisterControlKey("DeleteAllHooksKey", settings.GetValue<String>("CONTROL_KEYBOARD", "DeleteAllHooksKey", "None"),
                 (Action)DeleteAllHooks, TriggerCondition.PRESSED);
@@ -272,7 +285,7 @@ namespace VRope
             {
                 if(Game.IsControlJustPressed(0, GTA.Control.VehicleExit))
                 {
-                    DeleteAllHooks();
+                    DeleteAllTransportHooks();
                 }
             }
         }

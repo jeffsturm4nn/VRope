@@ -64,6 +64,16 @@ namespace VRope
             GC.WaitForPendingFinalizers();
         }
 
+        public static void DeleteAllTransportHooks()
+        {
+            for (int i = 0; i >= 0 && i < Hooks.Count; i++)
+            {
+                if(Hooks[i].isTransportHook)
+                {
+                    DeleteHookByIndex(i--);
+                }
+            }
+        }
 
         public static void DeleteHookByIndex(int hookIndex, bool removeFromHooks = true)
         {
@@ -82,19 +92,13 @@ namespace VRope
                     Hooks[hookIndex].Delete();
                     Hooks[hookIndex] = null;
                 }
-                else
-                {
-                    UI.Notify("DeleteHookByIndex(): Attempted to delete at invalid index (i:" + hookIndex + ").");
-                }
 
                 if (removeFromHooks)
                     Hooks.RemoveAt(hookIndex);
-
-                //if (callGC)
-                //{
-                //    GC.Collect();
-                //    GC.WaitForPendingFinalizers();
-                //}
+            }
+            else
+            {
+                UI.Notify("DeleteHookByIndex(): Attempted to delete at invalid index: " + hookIndex);
             }
         }
 
@@ -701,7 +705,6 @@ namespace VRope
             AttachEntityToEntityProc(false);
         }
 
-
         public static void RecreateEntityHooks(Entity entity)
         {
             List<int> indexes = GetIndexOfHooksThatContains(entity);
@@ -715,7 +718,6 @@ namespace VRope
             }
         }
 
-
         public static void RecreateEntityHook(int hookIndex, bool calcNewRopeLength = true)
         {
             if (hookIndex >= 0 && hookIndex < Hooks.Count)
@@ -726,11 +728,11 @@ namespace VRope
                 HookPair copyHook = new HookPair(Hooks[hookIndex]);
 
                 float customRopeLength = (!calcNewRopeLength ? Hooks[hookIndex].rope.Length : 0.0f);
-
+                float customMinRopeLength = (copyHook.HasNPCPed() && copyHook.isTransportHook) ? MinTransportPedRopeLength : MinRopeLength;
 
                 DeleteHookByIndex(hookIndex, false);
 
-                Hooks[hookIndex] = CreateEntityHook(copyHook, false, true, MinRopeLength, customRopeLength);
+                Hooks[hookIndex] = CreateEntityHook(copyHook, false, true, customMinRopeLength, customRopeLength);
 
 
                 Ped ped = GetNPCPedInHook(Hooks[hookIndex]);
@@ -738,7 +740,6 @@ namespace VRope
                 ped.Velocity = Vector3.Zero;
             }
         }
-
 
         public static Ped GetNPCPedInHook(HookPair hook)
         {

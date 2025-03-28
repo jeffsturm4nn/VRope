@@ -1,6 +1,10 @@
 ﻿using System;
+using System.CodeDom;
 using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
 using GTA;
+using GTA.Math;
 using GTA.Native;
 
 /*
@@ -17,7 +21,7 @@ namespace VRope
         public const String MOD_DEVELOPER = "jeffsturm4nn"; // :D
         public const int VERSION_MINOR = 0;
         public const int VERSION_BUILD = 13;
-        public const String VERSION_SUFFIX = "a {DevBuild}";
+        public const String VERSION_SUFFIX = "a DevBuild";
 
         public const int UPDATE_INTERVAL = 10; //milliseconds.
         public const int UPDATE_FPS = (1000 / UPDATE_INTERVAL); //100 FPS
@@ -29,6 +33,7 @@ namespace VRope
 
         public static bool EnableXBoxControllerInput;
         public static bool FreeRangeMode;
+        public static bool ShowHookCount;
         public static String ConfigFilePath;
         public static float MaxHookCreationDistance;
         public static float MaxHookedEntityDistance;
@@ -42,7 +47,7 @@ namespace VRope
         public static float BalloonUpForceIncrement;
         public static float MaxBalloonHookAltitude;
         public const float ForceScaleFactor = 1.3f;
-        public const float TransportVehicleDownForce = 42.0f;
+        public const float TransportVehicleDownForce = 43.0f;
 
         //public static int MAX_CHAIN_SEGMENTS;
         //public static bool SHOW_CHAIN_JOINT_PROP = true;
@@ -50,19 +55,21 @@ namespace VRope
         //public static float CHAIN_JOINT_OFFSET = 0.3f;    
         //public const float CHAIN_JOINT_PROP_MASS = 10.0f;
 
-        public const int MAX_HOOK_COUNT = 59;
+        public const int MAX_HOOK_COUNT = 58;
 
-        public const float MAX_HOOKED_PED_SPEED = 1.87f;
-        public const int MAX_HOOKED_PEDS = 300;
-        public const int MAX_SELECTED_HOOKS = 30;
+        public const float MAX_HOOKED_PED_SPEED = 1.91f;
+        public const int MAX_HOOKED_PEDS = 3;
+        public const int MAX_SELECTED_HOOKS = 25;
         public const int INIT_HOOK_LIST_CAPACITY = 100;
-        public const int PED_RAGDOLL_DURATION = 7000; // WARNING: Values above 9000 are very likely to crash the game (GTAV v1.0.2545).
+        public const int PED_RAGDOLL_DURATION = 13000;
         public const char SEPARATOR_CHAR = '+';
 
         public const float MIN_MIN_ROPE_LENGTH = 0.5f;
 
         public static float MinRopeLength = MIN_MIN_ROPE_LENGTH;
         public static float MaxRopeLength = 80.0f;
+
+        public static Vector3 TravelDestinationXYZ = new Vector3();
 
         //public const float MAX_MIN_ROPE_LENGTH = 100f;
         //public const float MIN_MIN_ROPE_LENGTH = MIN_ROPE_LENGTH;
@@ -75,7 +82,7 @@ namespace VRope
         public static bool FirstTime = true;
         public static bool NoSubtitlesMode = false;
 
-        public static bool DebugMode = true;
+        public static bool DebugMode = false;
         public static bool TestAction = false;
 
 
@@ -110,12 +117,10 @@ namespace VRope
         public static bool SolidRopes = false;
         public static bool BalloonHookMode = false;
         public static int CurrentTransportHookFilterIndex = 0;
-        public static int CurrentTransportHookModeIndex = 1;
+        public static int CurrentTransportHookModeIndex = 0;
         public static int TransportEntitiesRadius = 35;
 
-        public static bool TestAction1 = false;
-
-        //public static Stopwatch Watch = new Stopwatch();
+        public static Script CurrentScript = null;
 
         public static String GetErrorMessage(Exception exc)
         {
@@ -123,7 +128,7 @@ namespace VRope
         }
         public static String GetErrorMessage(Exception exc, String extraDebugInfo)
         {
-            return (DebugMode ? (exc.ToString() + "\n" + extraDebugInfo)  : exc.Message);
+            return (DebugMode ? (exc.ToString() + "\n" + extraDebugInfo) : exc.Message);
         }
 
         public static bool CanUseModFeatures()
@@ -179,55 +184,6 @@ namespace VRope
             NoSubtitlesMode = !NoSubtitlesMode;
 
             UI.Notify("VRope 'No Subtitles' Mode " + (NoSubtitlesMode ? "[Enabled]." : "(Disabled)."));
-        }
-
-
-        public static void ThisIsATestFunction()
-        {
-            if(Game.Player.IsAlive)
-            {
-                //RaycastResult rayResult = Util.CameraRaycastForward();
-                //Entity targetEntity = null;
-                //int fireChildren = 10;
-                //bool gasFire = false;
-
-                //if(rayResult.DitHitAnything)
-                //{
-                //    if (Util.GetEntityPlayerIsAimingAt(ref targetEntity))
-                //    {
-                //        //Vector3 zAxisDown = new Vector3(0f, 0f, -0.01f);
-
-                //        if (Util.IsNPCPed(targetEntity))
-                //        {
-                //            Ped ped = (Ped)targetEntity;
-
-                //            Util.MakePedRagdoll(ped, 2000);
-
-                //            Function.Call(Hash.START_ENTITY_FIRE, ped.Handle);
-                //        }
-                //        else
-                //        {
-                //            Vector3 pos = rayResult.HitCoords;
-
-                //            Function.Call(Hash.START_SCRIPT_FIRE, pos.X, pos.Y, pos.Z, fireChildren, gasFire);
-                //        }
-
-                //    }
-                //    else
-                //    {
-                //        Vector3 pos = rayResult.HitCoords;
-
-                //        Function.Call(Hash.START_SCRIPT_FIRE, pos.X, pos.Y, pos.Z, fireChildren, gasFire);
-                //    }
-                //}
-
-                Ped[] peds = World.GetNearbyPeds(Game.Player.Character.Position, 15);
-
-                for(int i=0; i<peds.Length; i++)
-                {
-                    Function.Call(Hash.START_ENTITY_FIRE, peds[i].Handle);
-                }
-            }
         }
     }
 }

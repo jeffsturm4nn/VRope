@@ -21,7 +21,6 @@ namespace VRope
 
         public enum TransportHookType
         {
-            NONE = 0,
             SINGLE,
             MULTIPLE,
             PRECISE,
@@ -32,8 +31,7 @@ namespace VRope
             CENTER = 0,
             LEFT_RIGHT,
             FRONT_BACK,
-            CROSS,
-            //HEXAGON
+            CROSS
         }
 
         public readonly static Pair<TransportHookMode, String>[] AllTransportHookModes =
@@ -154,30 +152,26 @@ namespace VRope
                 for (int i = 0; i < transportEntities.Count; i++)
                 {
                     Entity entity = transportEntities[i];
+                    TransportHookMode hookMode = AllTransportHookModes[CurrentTransportHookModeIndex].first;
 
-                    if (!CheckTransportHookPermission(entity))
+                    if (!CheckTransportHookPermission(entity, hookMode))
                         continue;
 
                     Entity hookEntity1 = (!Util.IsPed(entity) ? Game.Player.Character : playerFlyingVehicle);
 
                     HookPair transHook = new HookPair();
-                    TransportHookMode hookMode = TransportHookMode.CENTER;
 
                     transHook.isTransportHook = true;
                     transHook.ropeType = TransportHooksRopeType;
                     transHook.entity1 = hookEntity1;
                     transHook.entity2 = entity;
 
-                    if (hookType == TransportHookType.SINGLE)
-                    {
-                        hookMode = AllTransportHookModes[CurrentTransportHookModeIndex].first;
-                    }
-                    else if (hookType == TransportHookType.MULTIPLE)
+                    if (hookType == TransportHookType.MULTIPLE)
                     {
                         transHook.hookOffset1 = Util.GetRandom2DPositionAround(Vector3.Zero, 0.31f);
                     }
 
-                    if(Util.IsPed(entity))
+                    if(Util.IsPed(entity) || hookType != TransportHookType.SINGLE)
                     {
                         hookMode = TransportHookMode.CENTER;
                     }
@@ -208,9 +202,6 @@ namespace VRope
                 if (Game.Player.Character.IsAlive && Game.Player.Character.IsSittingInVehicle()
                     && Game.Player.Character.IsInFlyingVehicle)
                 {
-                    if (HookFilter.DefaultFilters[CurrentTransportHookFilterIndex].filterValue == "GTA.Prop")
-                        hookType = TransportHookType.SINGLE;
-
                     CreateAirVehicleTransportHooks(hookType);
                 }
             }
@@ -221,7 +212,7 @@ namespace VRope
         }
 
 
-        private static bool CheckTransportHookPermission(Entity entity)
+        private static bool CheckTransportHookPermission(Entity entity, TransportHookMode hookMode)
         {
             //if (DebugMode)
             //{
@@ -239,8 +230,18 @@ namespace VRope
             if (entity == null || !entity.Exists())
                 return false;
 
-            if (Hooks.Count >= MAX_HOOK_COUNT)
+            if (Core.Hooks.Count >= MAX_HOOK_COUNT)
                 return false;
+
+            if (!Util.IsPed(entity) &&
+
+                ((hookMode == TransportHookMode.LEFT_RIGHT || hookMode == TransportHookMode.FRONT_BACK) &&
+                (Hooks.Count + 2) > MAX_HOOK_COUNT) ||
+
+                (hookMode == TransportHookMode.CROSS && (Hooks.Count + 4) > MAX_HOOK_COUNT))
+            {
+                return false;
+            }
 
             if (entity == Util.GetVehiclePlayerIsIn() ||
 
@@ -248,13 +249,13 @@ namespace VRope
 
                 !HookFilter.DefaultFilters[CurrentTransportHookFilterIndex].matches(entity) ||
 
-                Util.IsPed(entity) &&
+                (Util.IsPed(entity) &&
                     (
                         HookedPedCount >= MAX_HOOKED_PEDS ||
                         ((Ped)entity).IsDead ||
                         ((Ped)entity).IsSittingInVehicle()
-                    ) ||
-
+                    )) ||
+                
                 RopeModule.IsEntityHookedToPlayer(entity) ||
 
                 RopeModule.IsEntityHookedToPlayersVehicle(entity))
@@ -301,6 +302,7 @@ namespace VRope
             Entity nearestEntity = null;
 
             Entity[] nearbyEntities = World.GetNearbyEntities(position, radius);
+            TransportHookMode hookMode = AllTransportHookModes[CurrentTransportHookModeIndex].first;
 
             if (nearbyEntities != null && nearbyEntities.Length > 0)
             {
@@ -308,7 +310,7 @@ namespace VRope
                 {
                     Entity entity = nearbyEntities[i];
 
-                    if (!CheckTransportHookPermission(entity))
+                    if (!CheckTransportHookPermission(entity, hookMode))
                         continue;
 
                     float distance = entity.Position.DistanceTo(position);
@@ -325,7 +327,6 @@ namespace VRope
             //    UI.Notify("nearestEntity.isNull = " + (nearestEntity == null).ToString());
 
             return nearestEntity;
-
         }
 
 
@@ -433,28 +434,28 @@ namespace VRope
                                     + (transHook.entity2.UpVector * (entityDimensions.Z * zDimensionScale));
 
 
-            Vector3 raySourceFront = transHook.entity2.Position + frontHookOffset;
-            Vector3 raySourceBack = transHook.entity2.Position + backHookOffset;
+            //Vector3 raySourceFront = transHook.entity2.Position + frontHookOffset;
+            //Vector3 raySourceBack = transHook.entity2.Position + backHookOffset;
 
-            RaycastResult rayFront = World.Raycast(raySourceFront, -transHook.entity2.UpVector, 7.0f, IntersectOptions.Everything, playerVehicle);
-            RaycastResult rayBack = World.Raycast(raySourceBack, -transHook.entity2.UpVector, 7.0f, IntersectOptions.Everything, playerVehicle);
+            //RaycastResult rayFront = World.Raycast(raySourceFront, -transHook.entity2.UpVector, 7.0f, IntersectOptions.Everything, playerVehicle);
+            //RaycastResult rayBack = World.Raycast(raySourceBack, -transHook.entity2.UpVector, 7.0f, IntersectOptions.Everything, playerVehicle);
 
-            if (!Util.isPlane(transHook.entity2) && !Util.isHeli(transHook.entity2) &&
-                rayFront.DitHitEntity && rayFront.HitEntity == transHook.entity2 &&
-               rayBack.DitHitEntity && rayBack.HitEntity == transHook.entity2)
-            {
-                hook1.hookOffset2 = rayFront.HitCoords - transHook.entity2.Position;
-                hook2.hookOffset2 = rayBack.HitCoords - transHook.entity2.Position;
-            }
-            else
-            {
-                if (DebugMode)
-                    UI.Notify("Failed F/B Raycast Hook");
+            //if (!Util.isPlane(transHook.entity2) && !Util.isHeli(transHook.entity2) &&
+            //    rayFront.DitHitEntity && rayFront.HitEntity == transHook.entity2 &&
+            //   rayBack.DitHitEntity && rayBack.HitEntity == transHook.entity2)
+            //{
+            //    hook1.hookOffset2 = rayFront.HitCoords - transHook.entity2.Position;
+            //    hook2.hookOffset2 = rayBack.HitCoords - transHook.entity2.Position;
+            //}
+            //else
+            //{
+            //    if (DebugMode)
+            //        UI.Notify("Failed F/B Raycast Hook");
 
                 hook1.hookOffset2 = frontHookOffset;
 
                 hook2.hookOffset2 = backHookOffset;
-            }
+            //}
 
             float rope1Length = (hook1.entity1.Position + hook1.hookOffset1).DistanceTo(hook1.entity2.Position + hook1.hookOffset2);
             float rope2Length = (hook2.entity1.Position + hook1.hookOffset1).DistanceTo(hook2.entity2.Position + hook1.hookOffset2);

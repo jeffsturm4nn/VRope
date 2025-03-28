@@ -3,6 +3,7 @@ using GTA.Math;
 using GTA.Native;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 /*
  * 
@@ -15,6 +16,93 @@ namespace VRope
     public static class Util
     {
         private static Random globalRandom = new Random(Guid.NewGuid().GetHashCode());
+
+        public static List<Ped> GetNearestValidPeds(Ped target, int pedCount, float maxRadius = 40f, List<Ped> ignoreList = null)
+        {
+            var nearestPeds = new List<Ped>();
+
+            if (target != null && target.Exists())
+            {
+                var sortedPedsByDistance = World.GetNearbyPeds(target, maxRadius).
+                    Where(ped => (ped != null
+                        && ped.Exists()
+                        && !ped.IsRagdoll
+                        && ped.IsAlive
+                        && ped.IsHuman
+                        && (ped.IsOnFoot || (ped.IsInVehicle() && !ped.IsInFlyingVehicle))
+                        && ped != Game.Player.Character)
+                        && !(ignoreList != null && ignoreList.Contains(ped))).
+                    OrderBy(ped => Math.Abs(ped.Position.DistanceTo(Game.Player.Character.Position))).
+                    Take(pedCount);
+
+                nearestPeds.AddRange(sortedPedsByDistance);
+            }
+
+            return nearestPeds;
+        }
+        public static Vehicle GetNearesVehicle(Ped ped, float maxRadius = 45f)
+        {
+            Vehicle vehicle = World.GetNearbyVehicles(ped, maxRadius)
+                     .Where(v => v != null
+                        && v.Exists()
+                        && !v.IsOnFire
+                        && !v.IsUpsideDown
+                        //&& v.IsDriveable
+                        //&& v.WheelType != VehicleWheelType.BikeWheels
+                        && v.IsStopped
+                        )
+                    .OrderBy(p => Math.Abs(p.Position.DistanceTo(ped.Position)))
+                    .FirstOrDefault();
+
+            return vehicle;
+        }
+
+        public static void RecruitPedAsDriver(Ped ped, Vehicle vehicle, Vector3 destination)
+        {
+            if (ped != null && ped.Exists() && vehicle != null && vehicle.Exists())
+            {
+                TaskSequence ts = new TaskSequence();
+                ts.AddTask.ClearAllImmediately();
+
+                if (destination != null)
+                {
+                    ts.AddTask.DriveTo(vehicle, destination, 10f, 90f, (int)DrivingStyle.Rushed);
+                }
+                else
+                {
+                    ts.AddTask.EnterVehicle(vehicle, VehicleSeat.Driver);
+                }
+
+                ts.AddTask.LeaveVehicle(LeaveVehicleFlags.LeaveDoorOpen);
+                ts.Close();
+
+                ped.Task.PerformSequence(ts);
+
+                ts.Dispose();
+            }
+        }
+
+        public static VehicleSeat GetVehicleFreeSeat(Vehicle vehicle)
+        {
+            Ped player = Game.Player.Character;
+
+            if (vehicle != null && vehicle.Exists() && vehicle.PassengerSeats > 0)
+            {
+                //for (int i = 0; i < vehicle.PassengerSeats; i++)
+                for (int i = vehicle.PassengerSeats-1; i >= 0; i--)
+                {
+                    VehicleSeat vehicleSeat = (VehicleSeat)i;
+
+                    if (vehicleSeat != VehicleSeat.Driver &&
+                        vehicle.IsSeatFree(vehicleSeat))
+                    {
+                        return vehicleSeat;
+                    }
+                }
+            }
+
+            return VehicleSeat.None;
+        }
 
         public static Random GetGlobalRandom()
         {
@@ -385,6 +473,38 @@ namespace VRope
         public static bool isHeli(Entity e)
         {
             return (e != null && e.Model.IsHelicopter);
+        }
+
+        public static Vector3 parseVector3FromString(string vectorData, Vector3 defaultValue)
+        {
+            if(vectorData == null || vectorData.Length == 0)
+            {
+                return defaultValue;
+            }
+
+            string[] valuesStr = vectorData.Split(',');
+
+            if(valuesStr.Length < 3)
+            {
+                UI.Notify("VRope Util Error:\n Invalid Vector3 data: " + vectorData);
+                return defaultValue;
+            }
+
+            Vector3 vector = new Vector3();
+
+            try
+            {
+                vector.X = float.Parse(valuesStr[0].Trim());
+                vector.X = float.Parse(valuesStr[1].Trim());
+                vector.X = float.Parse(valuesStr[2].Trim());
+            }
+            catch (Exception e)
+            {
+                UI.Notify("VRope Util Error:\n " + e.Message);
+                return defaultValue;
+            }
+
+            return vector;
         }
     }
 }

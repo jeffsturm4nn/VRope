@@ -12,7 +12,7 @@ namespace VRope
 {
     public class ControlKey
     {
-        public String name = "";
+        public string name = "";
         public List<Keys> keys = null;
         public Action callback = null;
         public TriggerCondition condition = TriggerCondition.NONE;

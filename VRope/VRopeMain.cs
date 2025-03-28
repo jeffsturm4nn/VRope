@@ -1,17 +1,17 @@
 ﻿
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Windows.Forms;
 
 using GTA;
-using GTA.Native;
 using GTA.Math;
 
 using static VRope.Core;
+using static VRope.TestModule;
 using static VRope.InputModule;
 using static VRope.RopeModule;
+
 
 /*
  * 
@@ -57,6 +57,8 @@ namespace VRope
                 //KeyUp += OnKeyUp;
 
                 Interval = UPDATE_INTERVAL;
+
+                Core.CurrentScript = this;
             }
             catch (Exception exc)
             {
@@ -120,6 +122,7 @@ namespace VRope
                 ModActive = settings.GetValue("GLOBAL_VARS", "ENABLE_ON_GAME_LOAD", false);
                 NoSubtitlesMode = settings.GetValue("GLOBAL_VARS", "NO_SUBTITLES_MODE", false);
                 EnableXBoxControllerInput = settings.GetValue("GLOBAL_VARS", "ENABLE_XBOX_CONTROLLER_INPUT", true);
+                ShowHookCount = settings.GetValue("GLOBAL_VARS", "SHOW_HOOK_COUNT", true);
 
                 XBoxController.LEFT_TRIGGER_THRESHOLD = settings.GetValue<byte>("CONTROL_XBOX_CONTROLLER", "LEFT_TRIGGER_THRESHOLD", 255);
                 XBoxController.RIGHT_TRIGGER_THRESHOLD = settings.GetValue<byte>("CONTROL_XBOX_CONTROLLER", "RIGHT_TRIGGER_THRESHOLD", 255);
@@ -128,12 +131,12 @@ namespace VRope
                 {
                     FreeRangeMode = settings.GetValue("ROPE_MECHANICS_VARS", "FREE_RANGE_MODE", true);
                     MinRopeLength = (settings.GetValue("ROPE_MECHANICS_VARS", "MIN_ROPE_LENGTH", MIN_MIN_ROPE_LENGTH * 10.0f) / 10.0f);
-                    MaxHookCreationDistance = settings.GetValue("ROPE_MECHANICS_VARS", "MAX_HOOK_CREATION_DISTANCE", 70.0f);
+                    MaxHookCreationDistance = settings.GetValue("ROPE_MECHANICS_VARS", "MAX_HOOK_CREATION_DISTANCE", 80.0f);
                     MaxHookedEntityDistance = settings.GetValue("ROPE_MECHANICS_VARS", "MAX_HOOKED_ENTITY_DISTANCE", 150.0f);
                     MaxHookedPedDistance = settings.GetValue("ROPE_MECHANICS_VARS", "MAX_HOOKED_PED_DISTANCE", 70.0f);
                     RopeHookPropModel = settings.GetValue("ROPE_MECHANICS_VARS", "ROPE_HOOK_PROP_MODEL", "prop_golf_ball");
                     ShowHookRopeProp = settings.GetValue("ROPE_MECHANICS_VARS", "SHOW_ROPE_HOOK_PROP", true);
-                    RopeWindingSpeed = (settings.GetValue("ROPE_MECHANICS_VARS", "ROPE_WINDING_SPEED", 15.0f) / 100.0f);
+                    RopeWindingSpeed = (settings.GetValue("ROPE_MECHANICS_VARS", "ROPE_WINDING_SPEED", 13.0f) / 100.0f);
 
                     EntityToEntityHookRopeType = settings.GetValue<RopeType>("HOOK_ROPE_TYPES", "EntityToEntityHookRopeType", (RopeType)1);
                     PlayerToEntityHookRopeType = settings.GetValue<RopeType>("HOOK_ROPE_TYPES", "PlayerToEntityHookRopeType", (RopeType)4);
@@ -146,7 +149,7 @@ namespace VRope
 
                 if (ENABLE_FORCE_MODULE)
                 {
-                    ForceMagnitude = settings.GetValue("FORCE_MECHANICS_VARS", "DEFAULT_FORCE_VALUE", 80.0f);
+                    ForceMagnitude = settings.GetValue("FORCE_MECHANICS_VARS", "DEFAULT_FORCE_VALUE", 50.0f);
                     BalloonUpForce = settings.GetValue("FORCE_MECHANICS_VARS", "DEFAULT_BALLOON_UP_FORCE_VALUE", 45.0f);
                     ForceIncrementValue = settings.GetValue("FORCE_MECHANICS_VARS", "FORCE_INCREMENT_VALUE", 2.0f);
                     BalloonUpForceIncrement = settings.GetValue("FORCE_MECHANICS_VARS", "BALLOON_UP_FORCE_INCREMENT", 1.0f);
@@ -163,6 +166,8 @@ namespace VRope
                     TransportHooksRopeType = settings.GetValue<RopeType>("HOOK_ROPE_TYPES", "TransportHooksRopeType", (RopeType)3);
                 }
 
+                TravelDestinationXYZ = Util.parseVector3FromString(settings.GetValue("DEV_STUFF", "TravelDestinationXYZ", ""), AirportEntracePosition);
+
                 InitControlKeysFromConfig(settings);
 
                 if (EnableXBoxControllerInput)
@@ -178,82 +183,98 @@ namespace VRope
 
         private void ProcessHooks()
         {
-            Entity playerEntity = Game.Player.Character;
-            Vector3 playerPosition = Game.Player.Character.Position;
-            bool deleteHook = false;
+            int hookIndex = -1;
 
-            if (Hooks.Count > 0)
+            try
             {
-                if (playerEntity.Exists() && playerEntity.IsDead)
+                Entity playerEntity = Game.Player.Character;
+                Vector3 playerPosition = Game.Player.Character.Position;
+                bool deleteHook = false;
+
+                if (Core.Hooks.Count > 0)
                 {
-                    DeleteAllHooks();
-                    return;
+                    if (playerEntity.Exists() && playerEntity.IsDead)
+                    {
+                        DeleteAllHooks();
+                        return;
+                    }
+
+                    for (int i = 0; i >= 0 && i < Hooks.Count; i++)
+                    {
+                        hookIndex = i;
+
+                        if (Core.Hooks[i] == null)
+                        {
+                            if (DebugMode)
+                                UI.Notify("Deleting Hook - NULL. i:" + i);
+
+                            deleteHook = true;
+                        }
+                        else if (!Core.Hooks[i].IsValid())
+                        {
+                            if (DebugMode)
+                                UI.Notify("Deleting Hook - Invalid. i:" + i +
+                                    "\nRope.isNull:" + (Core.Hooks[i].rope == null).ToString());
+
+                            deleteHook = true;
+                        }
+                        else if (!FreeRangeMode &&
+                            (!Core.Hooks[i].isEntity1ABalloon && !Core.Hooks[i].isEntity2ABalloon) &&
+                            (Core.Hooks[i].entity1 != playerEntity &&
+                            ((playerPosition.DistanceTo(Core.Hooks[i].entity1.Position) > MaxHookedEntityDistance) ||
+                            (playerPosition.DistanceTo(Core.Hooks[i].entity2.Position) > MaxHookedEntityDistance))))
+                        {
+                            if (DebugMode)
+                                UI.Notify("Deleting Hook - Too Far. i:" + i);
+
+                            deleteHook = true;
+                        }
+                        else if ((Util.IsPed(Core.Hooks[i].entity1) && Core.Hooks[i].entity1.IsDead) ||
+                                (Util.IsPed(Core.Hooks[i].entity2) && Core.Hooks[i].entity2.IsDead))
+                        {
+                            if (DebugMode)
+                                UI.Notify("Deleting Ped Hook - Dead Ped. i:" + i);
+
+                            deleteHook = true;
+                        }
+                        else if ((Util.IsNPCPed(Core.Hooks[i].entity1) || Util.IsPed(Core.Hooks[i].entity2)) &&
+                            ((playerPosition.DistanceTo(Core.Hooks[i].entity1.Position) > MaxHookedPedDistance) ||
+                            (playerPosition.DistanceTo(Core.Hooks[i].entity2.Position) > MaxHookedPedDistance)))
+                        {
+                            if (DebugMode)
+                                UI.Notify("Deleting Ped Hook - Too Far. i:" + i);
+
+                            deleteHook = true;
+                        }
+
+                        if (deleteHook)
+                        {
+                            DeleteHookByIndex(i--);
+                            break;
+                        }
+
+                        if (Core.Hooks[i].HasNPCPed())
+                            ProcessPedsInHook(i);
+
+                        if (Core.Hooks[i].isEntity1ABalloon)
+                            ProcessBalloonHook(i);
+
+                        if (Core.Hooks[i].isTransportHook)
+                            ProcessTransportHook(i);
+
+
+                    }
                 }
+            }
+            catch (Exception exc)
+            {
+                UI.Notify("VRope ProcessHook() Error:\n" +
+                    GetErrorMessage(exc, " - Hook Count:" + Core.Hooks.Count + " HookIndex:" + hookIndex) +
+                    "\nMod execution halted.");
 
-                for (int i = 0; i < Hooks.Count; i++)
-                {
-                    if (Hooks[i] == null)
-                    {
-                        if (DebugMode)
-                            UI.Notify("Deleting Hook - NULL. i:" + i);
-
-                        deleteHook = true;
-                    }
-                    else if (!Hooks[i].IsValid())
-                    {
-                        if (DebugMode)
-                            UI.Notify("Deleting Hook - Invalid. i:" + i + 
-                                "\nRope.null:" + (Hooks[i].rope == null).ToString());
-
-                        deleteHook = true;
-                    }
-                    else if (!FreeRangeMode &&
-                        (!Hooks[i].isEntity1ABalloon && !Hooks[i].isEntity2ABalloon) &&
-                        (Hooks[i].entity1 != playerEntity &&
-                        ((playerPosition.DistanceTo(Hooks[i].entity1.Position) > MaxHookedEntityDistance) ||
-                        (playerPosition.DistanceTo(Hooks[i].entity2.Position) > MaxHookedEntityDistance))))
-                    {
-                        if (DebugMode)
-                            UI.Notify("Deleting Hook - Too Far. i:" + i);
-
-                        deleteHook = true;
-                    }
-                    else if ((Util.IsPed(Hooks[i].entity1) && Hooks[i].entity1.IsDead) ||
-                            (Util.IsPed(Hooks[i].entity2) && Hooks[i].entity2.IsDead))
-                    {
-                        if (DebugMode)
-                            UI.Notify("Deleting Ped Hook - Dead Ped. i:" + i);
-
-                        deleteHook = true;
-                    }
-                    else if (((Util.IsPed(Hooks[i].entity1) && !Util.IsPlayer(Hooks[i].entity1)) || Util.IsPed(Hooks[i].entity2)) &&
-                        ((playerPosition.DistanceTo(Hooks[i].entity1.Position) > MaxHookedPedDistance) ||
-                        (playerPosition.DistanceTo(Hooks[i].entity2.Position) > MaxHookedPedDistance)))
-                    {
-                        if (DebugMode)
-                            UI.Notify("Deleting Ped Hook - Too Far. i:" + i);
-
-                        deleteHook = true;
-                    }
-
-
-                    if (deleteHook)
-                    {
-                        DeleteHookByIndex(i--);
-                        continue;
-                    }
-
-                    if (Hooks[i].HasNPCPed())
-                        ProcessPedsInHook(i);
-
-                    if (Hooks[i].isEntity1ABalloon)
-                        ProcessBalloonHook(i);
-
-                    if (Hooks[i].isTransportHook)
-                        ProcessTransportHook(i);
-
-                    
-                }
+                DeleteAllHooks();
+                ModRunning = false;
+                ModActive = false;
             }
 
         }
@@ -263,16 +284,14 @@ namespace VRope
         {
             try
             {
-                Ped ped = (Ped)(Util.IsNPCPed(Hooks[hookIndex].entity1) ? Hooks[hookIndex].entity1 : Hooks[hookIndex].entity2);
-
+                Ped ped = (Ped)(Util.IsNPCPed(Core.Hooks[hookIndex].entity1) ? Core.Hooks[hookIndex].entity1 : Core.Hooks[hookIndex].entity2);
 
                 if (ped.IsAlive && !ped.IsRagdoll)
                 {
-                    bool isWinding = Hooks[hookIndex].isWinding;
-                    bool isUnwinding = Hooks[hookIndex].isUnwinding;
+                    bool isWinding = Core.Hooks[hookIndex].isWinding;
+                    bool isUnwinding = Core.Hooks[hookIndex].isUnwinding;
 
-                    int lastHookIndex = Hooks.Count - 1;
-
+                    int lastHookIndex = Core.Hooks.Count - 1;
 
                     if (!ped.IsInAir && !ped.IsInWater)
                     {
@@ -295,14 +314,12 @@ namespace VRope
                         SetHookRopeWindingByIndex(hookIndex, isWinding);
                         SetHookRopeUnwindingByIndex(hookIndex, isUnwinding);
                     }
-
                 }
-
             }
             catch (Exception exc)
             {
                 UI.Notify("VRope ProcessPedsInHook() Error:\n" +
-                    GetErrorMessage(exc, "Hook Count: " + Hooks.Count + " Hook Index: " + hookIndex) +
+                    GetErrorMessage(exc, " - Hook Count:" + Core.Hooks.Count + " Hook Index:" + hookIndex) +
                     "\nMod execution halted.");
 
                 DeleteAllHooks();
@@ -313,11 +330,11 @@ namespace VRope
 
         private void ProcessBalloonHook(int hookIndex)
         {
-            Entity balloonEntity = Hooks[hookIndex].entity1;
+            Entity balloonEntity = Core.Hooks[hookIndex].entity1;
 
-            if (!Hooks[hookIndex].isEntity2AMapPosition && Util.IsPlayer(Hooks[hookIndex].entity1))
+            if (!Core.Hooks[hookIndex].isEntity2AMapPosition && Util.IsPlayer(Core.Hooks[hookIndex].entity1))
             {
-                balloonEntity = Hooks[hookIndex].entity2;
+                balloonEntity = Core.Hooks[hookIndex].entity2;
             }
 
             Vector3 zAxis = new Vector3(0f, 0f, 0.01f);
@@ -326,9 +343,42 @@ namespace VRope
                 balloonEntity.ApplyForce(zAxis * BalloonUpForce);
         }
 
+        private void ProcessTestEntities()
+        {
+            float upForceMagnitude = 34.00f;
+            float maxEntityAltitude = 29.0f;
+
+            foreach (Entity entity in TestEntities)
+            {
+                if (entity != null)
+                {
+                    if (Util.IsPed(entity) && !Util.IsPlayer(entity))
+                    {
+                        Ped ped = (Ped)entity;
+                        if (!ped.IsRagdoll)
+                        {
+                            Util.MakePedRagdoll(ped, 5000); 
+                        }
+                        upForceMagnitude = 35.0f;
+                    }
+
+                    Vector3 zAxis = new Vector3(0f, 0f, 0.01f);
+
+                    if (entity.HeightAboveGround < maxEntityAltitude)
+                    { 
+                        entity.ApplyForce(zAxis * upForceMagnitude); 
+                    }
+                    else
+                    {
+                        entity.ApplyForce((-zAxis) * (upForceMagnitude / 3.5f));
+                    }
+                }
+            }
+        }
+        
         private void ProcessTransportHook(int hookIndex)
         {
-            Entity entity = Hooks[hookIndex].entity2;
+            Entity entity = Core.Hooks[hookIndex].entity2;
 
             if (!entity.IsInAir)
             {
@@ -380,81 +430,83 @@ namespace VRope
 
         private void UpdateDebugStuff()
         {
-            DebugInfo += "Active Hooks: " + Hooks.Count;
+            DebugInfo += "Active Hooks: " + Core.Hooks.Count;
 
             String format = "0.00";
 
             if (Game.Player.Exists() && !Game.Player.IsDead &&
                 Game.Player.CanControlCharacter)
             {
-                if (Game.Player.IsAiming)
-                {
-                    RaycastResult rayResult = Util.CameraRaycastForward();
-                    Entity targetEntity = rayResult.HitEntity;
+                //if (Game.Player.IsAiming)
+                //{
+                //    RaycastResult rayResult = Util.CameraRaycastForward();
+                //    Entity targetEntity = rayResult.HitEntity;
 
-                    if (rayResult.DitHitEntity && Util.IsValid(targetEntity))
-                    {
+                //    if (rayResult.DitHitEntity && Util.IsValid(targetEntity))
+                //    {
 
-                        Vector3 pos = targetEntity.Position;
-                        Vector3 rot = targetEntity.Rotation;
-                        Vector3 vel = targetEntity.Velocity;
-                        float dist = targetEntity.Position.DistanceTo(Game.Player.Character.Position);
-                        float speed = vel.Length();
+                //        Vector3 pos = targetEntity.Position;
+                //        Vector3 rot = targetEntity.Rotation;
+                //        Vector3 vel = targetEntity.Velocity;
+                //        float dist = targetEntity.Position.DistanceTo(Game.Player.Character.Position);
+                //        float speed = vel.Length();
 
-                        DebugInfo += "\n | Entity Detected: " + targetEntity.GetType() + " | " + (Util.IsStatic(targetEntity) ? "Static" : "Dynamic") +
-                                    "\n Position(X:" + pos.X.ToString(format) + ", Y:" + pos.Y.ToString(format) + ", Z:" + pos.Z.ToString(format) + ")" +
-                                    " Rotation(" + rot.X.ToString(format) + ", Y:" + rot.Y.ToString(format) + ", Z:" + rot.Z.ToString(format) + ")" +
-                                    //"\n Velocity(" + vel.X.ToString(format) + ", Y:" + vel.Y.ToString(format) + ", Z:" + vel.Z.ToString(format) + ")" +
-                                    "\n Speed(" + speed.ToString(format) + ") Distance(" + dist.ToString(format) + ")";
-                    }
-                }
+                //        DebugInfo += "\n | Entity Detected: " + targetEntity.GetType() + " | " + (Util.IsStatic(targetEntity) ? "Static" : "Dynamic") +
+                //                    "\n Position(X:" + pos.X.ToString(format) + ", Y:" + pos.Y.ToString(format) + ", Z:" + pos.Z.ToString(format) + ")" +
+                //                    " Rotation(" + rot.X.ToString(format) + ", Y:" + rot.Y.ToString(format) + ", Z:" + rot.Z.ToString(format) + ")" +
+                //                    //"\n Velocity(" + vel.X.ToString(format) + ", Y:" + vel.Y.ToString(format) + ", Z:" + vel.Z.ToString(format) + ")" +
+                //                    "\n Speed(" + speed.ToString(format) + ") Distance(" + dist.ToString(format) + ")";
+                //    }
+                //}
 
-                if (Hooks.Count > 0 && Hooks.Last() != null && Hooks.Last().Exists())
-                {
-                    if (Hooks.Last().entity1 != null)
-                        DebugInfo += "\n | E1.Distance(" + Game.Player.Character.Position.DistanceTo(Hooks.Last().entity1.Position).ToString("0.00") + ")";
+                //if (Core.Hooks.Count > 0 && Core.Hooks.Last() != null && Core.Hooks.Last().Exists())
+                //{
+                //    if (Core.Hooks.Last().entity1 != null)
+                //        DebugInfo += "\n | E1.Distance(" + Game.Player.Character.Position.DistanceTo(Core.Hooks.Last().entity1.Position).ToString("0.00") + ")";
 
-                    if (Hooks.Last().entity2 != null)
-                        DebugInfo += " |E2.Distance(" + Game.Player.Character.Position.DistanceTo(Hooks.Last().entity2.Position).ToString("0.00") + ")";
-                }
+                //    if (Core.Hooks.Last().entity2 != null)
+                //        DebugInfo += " |E2.Distance(" + Game.Player.Character.Position.DistanceTo(Core.Hooks.Last().entity2.Position).ToString("0.00") + ")";
+                //}
 
                 Vector3 ppos = Game.Player.Character.Position;
 
                 DebugInfo += "\n Player[" + " Speed(" + Game.Player.Character.Velocity.Length().ToString(format) + ")," +
                             " Position(X:" + ppos.X.ToString(format) + ", Y:" + ppos.Y.ToString(format) + ", Z:" + ppos.Z.ToString(format) + ") ]"
                             //+ "\nHookedPeds(" + HookedPedCount + ")"
-                            + "\nClock(" + DateTime.Now.ToString("HH:mm:ss") + ")"
-                            + " InFlyVehic(" + (Game.Player.Character.IsInFlyingVehicle.ToString()) + ")";
+                            + "\nClock(" + DateTime.Now.ToString("HH:mm:ss") + ")";
+                //+ " InFlyVehic(" + (Game.Player.Character.IsInFlyingVehicle.ToString()) + ")";
             }
         }
 
         private void ShowScreenInfo()
         {
-            if (!NoSubtitlesMode)
+            if (RopeHook.entity1 != null && RopeHook.entity2 == null)
             {
-                if (RopeHook.entity1 != null && RopeHook.entity2 == null)
-                {
-                    GlobalSubtitle += ("VRope: Select a second object to attach.\n");
-                }
-
-                if (ForceHook.entity1 != null && ForceHook.entity2 == null)
-                {
-                    GlobalSubtitle += ("VRope: Select the target object.\n");
-                }
-
-                if (SelectedHooks.Count > 0)
-                {
-                    GlobalSubtitle += "VRope: Objects Selected [ " + SelectedHooks.Count + " ].\n";
-                }
-
-                GlobalSubtitle += SubQueue.MountSubtitle();
-
-                if (DebugMode)
-                    GlobalSubtitle += "\n" + DebugInfo;
-
-
-                UI.ShowSubtitle(GlobalSubtitle);
+                GlobalSubtitle += ("VRope Hook: Select a second object or position to attach.\n");
             }
+
+            if (ForceHook.entity1 != null && ForceHook.entity2 == null)
+            {
+                GlobalSubtitle += ("VRope Force: Select the target object or position.\n");
+            }
+
+            if (SelectedHooks.Count > 0)
+            {
+                GlobalSubtitle += "VRope: Objects Selected [ " + SelectedHooks.Count + " ].\n";
+            }
+
+            GlobalSubtitle += SubQueue.MountSubtitle();
+
+            if (DebugMode)
+            {
+                GlobalSubtitle += "\n" + DebugInfo;
+            }
+            else if (ShowHookCount && Hooks.Count > 0)
+            {
+                GlobalSubtitle += "Active Hooks: " + Core.Hooks.Count;
+            }
+
+            UI.ShowSubtitle(GlobalSubtitle);
         }
 
 
@@ -463,7 +515,6 @@ namespace VRope
             try
             {
                 //long firstTime = Watch.ElapsedMilliseconds;
-
                 GlobalSubtitle = "";
                 DebugInfo = "";
 
@@ -491,14 +542,15 @@ namespace VRope
                 CheckForGTAControlsPressed();
 
                 ProcessHooks();
+                ProcessTestEntities();
 
                 if (TestAction)
                     ThisWillRunEveryFrame();
 
                 //long elapsedTime = Watch.ElapsedMilliseconds - firstTime;
                 //DebugInfo += "\n Loop Time(" + elapsedTime + " ms) ";
-
-                ShowScreenInfo();
+                if (!NoSubtitlesMode)
+                    ShowScreenInfo();
             }
             catch (Exception exc)
             {
