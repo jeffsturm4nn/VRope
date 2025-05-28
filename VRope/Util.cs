@@ -495,8 +495,8 @@ namespace VRope
             try
             {
                 vector.X = float.Parse(valuesStr[0].Trim());
-                vector.X = float.Parse(valuesStr[1].Trim());
-                vector.X = float.Parse(valuesStr[2].Trim());
+                vector.Y = float.Parse(valuesStr[1].Trim());
+                vector.Z = float.Parse(valuesStr[2].Trim());
             }
             catch (Exception e)
             {

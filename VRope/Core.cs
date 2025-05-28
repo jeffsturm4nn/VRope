@@ -69,8 +69,6 @@ namespace VRope
         public static float MinRopeLength = MIN_MIN_ROPE_LENGTH;
         public static float MaxRopeLength = 80.0f;
 
-        public static Vector3 TravelDestinationXYZ = new Vector3();
-
         //public const float MAX_MIN_ROPE_LENGTH = 100f;
         //public const float MIN_MIN_ROPE_LENGTH = MIN_ROPE_LENGTH;
 

@@ -20,7 +20,39 @@ namespace VRope
 {
     public static class InputModule
     {
+        public static void SortKeyTuples()
+        {
+            for (int i = 0; i < ControlKeys.Count; i++)
+            {
+                for (int j = 0; j < ControlKeys.Count - 1; j++)
+                {
+                    if (ControlKeys[j].keys.Count < ControlKeys[j + 1].keys.Count)
+                    {
+                        var keyPair = ControlKeys[j];
 
+                        ControlKeys[j] = ControlKeys[j + 1];
+                        ControlKeys[j + 1] = keyPair;
+                    }
+                }
+            }
+        }
+
+        public static void SortButtonTuples()
+        {
+            for (int i = 0; i < ControlButtons.Count; i++)
+            {
+                for (int j = 0; j < ControlButtons.Count - 1; j++)
+                {
+                    if (ControlButtons[j].state.buttonPressedCount < ControlButtons[j + 1].state.buttonPressedCount)
+                    {
+                        var buttonPair = ControlButtons[j];
+
+                        ControlButtons[j] = ControlButtons[j + 1];
+                        ControlButtons[j + 1] = buttonPair;
+                    }
+                }
+            }
+        }
         public static void InitControlKeysFromConfig(ScriptSettings settings)
         {
             RegisterControlKey("ToggleModActiveKey", settings.GetValue<String>("CONTROL_KEYBOARD", "ToggleModActiveKey", "None"),

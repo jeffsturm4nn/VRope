@@ -16,6 +16,8 @@ namespace VRope
         public static readonly Vector3 CityJunkyardPosition = new Vector3(1060f, -2460f, 30f);
         public static readonly Vector3 FranklinHouse1Position = new Vector3(-14f, -1458f, 30f);
 
+        public static Vector3 TravelDestinationXYZ = new Vector3();
+
         public static bool TestAction1 = false;
         public static List<Entity> TestEntities = new List<Entity>(100);
 
@@ -135,11 +137,11 @@ namespace VRope
                         {
                             if (entity != null)
                             {
-                                float forceMagnitude = 2200.0f;
+                                float forceMagnitude = 3200.0f;
 
                                 if (Util.IsPed(entity))
                                 {
-                                    forceMagnitude = 2600.0f;
+                                    forceMagnitude = 2800.0f;
                                 }
 
                                 Vector3 distanceVector = entity2HookPosition - entity.Position;
@@ -202,6 +204,39 @@ namespace VRope
                 if (ped != null && ped.Exists())
                 {
                     Util.RecruitPedAsDriver(ped, vehicle, LandActWaterReservoirPosition);
+                }
+            }
+        }
+
+        public static void ProcessTestEntities()
+        {
+            float upForceMagnitude = 33.00f;
+            float maxEntityAltitude = 27.0f;
+
+            foreach (Entity entity in TestEntities)
+            {
+                if (entity != null)
+                {
+                    if (Util.IsPed(entity) && !Util.IsPlayer(entity))
+                    {
+                        Ped ped = (Ped)entity;
+                        if (!ped.IsRagdoll)
+                        {
+                            Util.MakePedRagdoll(ped, 5000);
+                        }
+                        upForceMagnitude = 35.0f;
+                    }
+
+                    Vector3 zAxis = new Vector3(0f, 0f, 0.01f);
+
+                    if (entity.HeightAboveGround < maxEntityAltitude)
+                    {
+                        entity.ApplyForce(zAxis * upForceMagnitude);
+                    }
+                    else
+                    {
+                        entity.ApplyForce((-zAxis) * (upForceMagnitude / 5.0f));
+                    }
                 }
             }
         }

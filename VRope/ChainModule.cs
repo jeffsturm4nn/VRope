@@ -14,7 +14,8 @@ using static VRope.Core;
 namespace VRope
 {
     //Failed implementation
-     public static class ChainModule
+    [Obsolete] 
+    public static class ChainModule
     {
         //public static void CreateRopeChain(HookPair hook, bool copyHook = true, bool hookAtBonePositions = true)
         //{

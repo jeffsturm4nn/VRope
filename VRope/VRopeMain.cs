@@ -73,41 +73,6 @@ namespace VRope
             ModRunning = false;
         }
 
-        private void SortKeyTuples()
-        {
-            for (int i = 0; i < ControlKeys.Count; i++)
-            {
-                for (int j = 0; j < ControlKeys.Count - 1; j++)
-                {
-                    if (ControlKeys[j].keys.Count < ControlKeys[j + 1].keys.Count)
-                    {
-                        var keyPair = ControlKeys[j];
-
-                        ControlKeys[j] = ControlKeys[j + 1];
-                        ControlKeys[j + 1] = keyPair;
-                    }
-                }
-            }
-        }
-
-        private void SortButtonTuples()
-        {
-            for (int i = 0; i < ControlButtons.Count; i++)
-            {
-                for (int j = 0; j < ControlButtons.Count - 1; j++)
-                {
-                    if (ControlButtons[j].state.buttonPressedCount < ControlButtons[j + 1].state.buttonPressedCount)
-                    {
-                        var buttonPair = ControlButtons[j];
-
-                        ControlButtons[j] = ControlButtons[j + 1];
-                        ControlButtons[j + 1] = buttonPair;
-                    }
-                }
-            }
-        }
-
-
         private void ProcessConfigFile()
         {
             try
@@ -167,6 +132,8 @@ namespace VRope
                 }
 
                 TravelDestinationXYZ = Util.parseVector3FromString(settings.GetValue("DEV_STUFF", "TravelDestinationXYZ", ""), AirportEntracePosition);
+
+                UI.Notify("TravelDestinationXYZ = \n" + TravelDestinationXYZ.ToString());
 
                 InitControlKeysFromConfig(settings);
 
@@ -343,39 +310,6 @@ namespace VRope
                 balloonEntity.ApplyForce(zAxis * BalloonUpForce);
         }
 
-        private void ProcessTestEntities()
-        {
-            float upForceMagnitude = 34.00f;
-            float maxEntityAltitude = 29.0f;
-
-            foreach (Entity entity in TestEntities)
-            {
-                if (entity != null)
-                {
-                    if (Util.IsPed(entity) && !Util.IsPlayer(entity))
-                    {
-                        Ped ped = (Ped)entity;
-                        if (!ped.IsRagdoll)
-                        {
-                            Util.MakePedRagdoll(ped, 5000); 
-                        }
-                        upForceMagnitude = 35.0f;
-                    }
-
-                    Vector3 zAxis = new Vector3(0f, 0f, 0.01f);
-
-                    if (entity.HeightAboveGround < maxEntityAltitude)
-                    { 
-                        entity.ApplyForce(zAxis * upForceMagnitude); 
-                    }
-                    else
-                    {
-                        entity.ApplyForce((-zAxis) * (upForceMagnitude / 3.5f));
-                    }
-                }
-            }
-        }
-        
         private void ProcessTransportHook(int hookIndex)
         {
             Entity entity = Core.Hooks[hookIndex].entity2;
