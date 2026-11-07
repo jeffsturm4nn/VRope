@@ -83,6 +83,10 @@ namespace VRope
         public static bool DebugMode = false;
         public static bool TestAction = false;
 
+        // Cutscene/mission detection — auto-pauses mod and cleans up hooks
+        public static bool AutoCleanupOnCutscene = true;
+        private static bool _wasInCutscene = false;
+
 
         public static Model RopeHookPropModel;
         //public static  Model chainJointPropModel;
@@ -133,7 +137,7 @@ namespace VRope
         {
             return Game.Player.Exists() && !Game.Player.IsDead &&
                 !Game.Player.Character.IsRagdoll && Game.Player.CanControlCharacter &&
-                Game.Player.IsAiming;
+                Game.Player.IsAiming && !IsGameBusy();
         }
 
         public static String GetModVersion()
@@ -143,10 +147,53 @@ namespace VRope
             return ("v" + version.Major + "." + VERSION_MINOR + "." + VERSION_BUILD + "." + version.Revision + VERSION_SUFFIX);
         }
 
+        /// <summary>
+        /// Returns true if the game is in a cutscene, mission scripted sequence, or other state where mod interference breaks things.
+        /// </summary>
+        public static bool IsGameBusy()
+        {
+            // Cutscene playing (includes mission intro/outro cutscenes)
+            if (Function.Call<bool>(NativeHashes.IS_CUTSCENE_PLAYING))
+                return true;
+
+            // Native check for cutscene active (covers some cases IS_CUTSCENE_PLAYING misses)
+            if (Function.Call<bool>(NativeHashes.IS_CUTSCENE_ACTIVE))
+                return true;
+
+            // Mission/scripted sequence running — player has no control or limited control
+            if (!Game.Player.CanControlCharacter)
+                return true;
+
+            // Player is switching characters (transition)
+            if (Function.Call<bool>(NativeHashes.IS_PLAYER_SWITCH_IN_PROGRESS))
+                return true;
+
+            // Death arrest sequence
+            if (Function.Call<bool>(NativeHashes.IS_DEATHARREST_SCRIPT_RUNNING))
+                return true;
+
+            // Pause menu or frontend
+            if (Game.IsPaused)
+                return true;
+
+            return false;
+        }
+
         public static void CheckCurrentModState()
         {
+            bool inCutscene = IsGameBusy();
+
+            // Auto-cleanup hooks when entering a cutscene/mission
+            if (AutoCleanupOnCutscene && inCutscene && !_wasInCutscene && Hooks.Count > 0)
+            {
+                RopeModule.DeleteAllHooks();
+                if (!NoSubtitlesMode)
+                    UI.ShowSubtitle("[VRope] Cutscene detected — hooks cleared", 2000);
+            }
+            _wasInCutscene = inCutscene;
+
             ModRunning = (Game.Player.Exists() && !FirstTime &&
-                            Game.Player.IsAlive && Game.Player.CanControlCharacter);
+                            Game.Player.IsAlive && Game.Player.CanControlCharacter && !inCutscene);
 
             if (FirstTime && Game.IsScreenFadedIn)
             {

@@ -88,6 +88,7 @@ namespace VRope
                 NoSubtitlesMode = settings.GetValue("GLOBAL_VARS", "NO_SUBTITLES_MODE", false);
                 EnableXBoxControllerInput = settings.GetValue("GLOBAL_VARS", "ENABLE_XBOX_CONTROLLER_INPUT", true);
                 ShowHookCount = settings.GetValue("GLOBAL_VARS", "SHOW_HOOK_COUNT", true);
+                Core.AutoCleanupOnCutscene = settings.GetValue("GLOBAL_VARS", "AUTO_CLEANUP_ON_CUTSCENE", true);
 
                 XBoxController.LEFT_TRIGGER_THRESHOLD = settings.GetValue<byte>("CONTROL_XBOX_CONTROLLER", "LEFT_TRIGGER_THRESHOLD", 255);
                 XBoxController.RIGHT_TRIGGER_THRESHOLD = settings.GetValue<byte>("CONTROL_XBOX_CONTROLLER", "RIGHT_TRIGGER_THRESHOLD", 255);
